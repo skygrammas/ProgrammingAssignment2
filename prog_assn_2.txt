@@ -1,0 +1,90 @@
+# $s1: entire string <= 1000
+# $t0: individual char evaluations
+# $t1: length of current word
+# $t2: front word ptr
+# $t3: end word ptr
+# $$t4: index
+
+# PROGRAM: Programming Assignment 2 (Strings to Hex)
+	.data                                                        # data section
+	string: .space 1000                                          # allocates 1000 bytes of space in memory
+	error_string: .asciiz "\nNaN\n" 			     # string to output if input is not hex
+	input_string: .asciiz "\nEnter a string up to 1000 characters: " # string to output to request user input
+	newline: .asciiz "\n"					     # newline char for formatting output
+	comma: .asciiz ", "					     #comma char for formatting output
+	.text                                                        # code section
+main:
+	jal request_input
+	jal read_input
+	jal store_input
+	jal find_word_entrance
+find_word_exit:
+	jal check_validity
+	
+request_input:
+	li $v0, 4                                                    # syscall code for printing string
+	la $a0, input_string                                         # load address of string to print into $a0
+	syscall
+	jr $ra
+
+read_input:                                                          # reads input from user
+	li $v0, 8
+	la $a0, string
+	li $a1, 1000
+	syscall
+	jr $ra
+
+store_input:                                                         # moves input from user to $s1
+	move $s1, $a0
+	jr $ra
+	
+find_word_entrance:						     # initial entrance to find word
+	addi $t4, $0, 0
+find_word:							     # finds front and end of word within string
+	lb $t0, 0($s1)
+	beq $t0, 32, ignore_space
+	beq $t4, 0, set_front_ptr
+	beq $t0, 44, set_end_ptr
+	beq $t0, 0, set_end_ptr
+	beq $t0, 10, set_end_ptr
+	addi $s1, $s1, 1					     # moves evaluation to next char
+	addi $t4, $t4, 1					     # increments index
+	j find_word						     # loop
+set_front_ptr:							     # sets pointer to head of word
+	addi $t2, $s1, 0
+	addi $t4, $t4, 1					     # increments index
+ignore_space:							     # ignores space and moves evaluation to next char
+	addi $s1, $s1, 1
+	j find_word
+set_end_ptr:							     # sets pointer to tail of word
+	addi $s1, $s1, -1					     # originally set as comma, moves evaluation back to last char before comma
+	lb $t0, 0($s1)
+	beq $t0, 32, set_end_ptr				     # if space --> moves evaluation again
+	addi $t3, $s1, 0					     # sets $t3 == tail of word
+	j find_word_exit
+	
+check_validity:
+	lb $t0, 0($t2)
+	blt $t0, 48, invalid
+	blt $t0, 58, valid					     # checks if character is 0-9
+	blt $t0, 65, invalid
+	blt $t0, 71, valid					     # checks if character is A-F
+	blt $t0, 97, invalid
+	blt $t0, 103, valid					     # checks if character is a-f
+invalid:
+	li $v0, 4
+	la $a0, error_string                                         # load address of error_string to print
+	syscall
+	#Need to jump to next word
+	#j find_word_entrance
+	
+valid:
+	add $a0, $0, $t0
+	jal char_2_hex
+	#next char in string
+	
+char_2_hex:
+	add $t0, $a0, $0
+	
+	add $v0, $0, #charValue
+	jr $ra
