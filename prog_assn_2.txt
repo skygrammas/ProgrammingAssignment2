@@ -1,4 +1,4 @@
-# $s1: entire string <= 1000
+ # $s1: entire string <= 1000
 # $t0: individual char evaluations
 # $t1: length of current word
 # $t2: front word ptr
