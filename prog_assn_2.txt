@@ -1,4 +1,4 @@
- # $s1: entire string <= 1000
+# $s1: entire string <= 1000
 # $t0: individual char evaluations
 # $t1: length of current word
 # $t2: front word ptr
@@ -51,7 +51,7 @@ find_word:							     # finds front and end of word within string
 	addi $t4, $t4, 1					     # increments index
 	j find_word						     # loop
 set_front_ptr:							     # sets pointer to head of word
-	addi $t2, $s1, 0
+	addi $t2, $s1, 0					     # sets $t2 == head of word
 	addi $t4, $t4, 1					     # increments index
 ignore_space:							     # ignores space and moves evaluation to next char
 	addi $s1, $s1, 1
@@ -79,12 +79,31 @@ invalid:
 	#j find_word_entrance
 	
 valid:
-	add $a0, $0, $t0
+	add $a0, $0, $t0					     # passes char parameter into $a0
 	jal char_2_hex
-	#next char in string
+	addi $t2, $t2, 1					     # moves evaluation to next char
+	#beq $t2, $t3, sum & print
+	j check_validity					     # loops evaluation for next char(s)
+
 	
 char_2_hex:
-	add $t0, $a0, $0
+	add $t0, $a0, $0					     # retrieves char parameter from $a0
+	bgt $t0, 97, numberVal
+	bgt $t0, 65, uppercaseVal
+	bgt $t0, 48, lowercaseVal
+	#mult $t0, significance (16^n)
+	#mflo $t0
+	add $v0, $0, $t0
+	jr $ra
 	
-	add $v0, $0, #charValue
+numberVal:							     # converts number char to hexadecimal
+	addi $t0, $t0, -48
+	jr $ra
+	
+uppercaseVal:							     # converts upper case letter char to hexadecimal
+	addi $t0, $t0, -55
+	jr $ra
+	
+lowercaseVal:							     # converts lower case letter char to hexadecimal
+	addi $t0, $t0, -87
 	jr $ra
