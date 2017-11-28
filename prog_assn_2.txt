@@ -5,12 +5,16 @@
 # $t3: end word ptr
 # $$t4: index
 # $t5: hex sum (totalHex)
+# $t6: divisor for unsigned printing (emulation) function
+# $t7: value retriever (from arguments) for print functions
+# $s2: pointer to next char after comma between words
 
 # PROGRAM: Programming Assignment 2 (Strings to Hex)
 	.data                                                        # data section
 	string: .space 1000                                          # allocates 1000 bytes of space in memory
 	error_string: .asciiz "\nNaN\n" 			     # string to output if input is not hex
 	input_string: .asciiz "\nEnter a string up to 1000 characters: " # string to output to request user input
+	too_long: .asciiz "\nToo long\n"			     # string to output if input is too long
 	newline: .asciiz "\n"					     # newline char for formatting output
 	comma: .asciiz ", "					     #comma char for formatting output
 	.text                                                        # code section
@@ -18,8 +22,10 @@ main:
 	jal request_input
 	jal read_input
 	jal store_input
+post_next_word:
 	jal find_word_entrance
-	add $t5, $0, 0						     # initialize Decimal value reg of current word within string
+	addi $t1, $0, 0						     # initialize length counter 
+	addi $t5, $0, 0						     # initialize Decimal value reg of current word within string
 find_word_exit:
 	jal check_validity
 	
@@ -46,27 +52,41 @@ find_word:							     # finds front and end of word within string
 	lb $t0, 0($s1)
 	beq $t0, 32, ignore_space
 	beq $t4, 0, set_front_ptr
-	beq $t0, 44, set_end_ptr
-	beq $t0, 0, set_end_ptr
-	beq $t0, 10, set_end_ptr
+	beq $t0, 44, true_end_ptr
+	beq $t0, 0, true_end_ptr
+	beq $t0, 10, true_end_ptr
 	addi $s1, $s1, 1					     # moves evaluation to next char
 	addi $t4, $t4, 1					     # increments index
+	addi $t1, $t1, 1					     # increments string length
 	j find_word						     # loop
 set_front_ptr:							     # sets pointer to head of word
 	addi $t2, $s1, 0					     # sets $t2 == head of word
 	addi $t4, $t4, 1					     # increments index
+	addi $t1, $t1, 1					     # increments string length
 ignore_space:							     # ignores space and moves evaluation to next char
 	addi $s1, $s1, 1
 	j find_word
+true_end_ptr:							     # sets pointer to next char after comma
+	addi $s2, $0, 0
+	addi $s2, $s1, 1
 set_end_ptr:							     # sets pointer to tail of word
 	addi $s1, $s1, -1					     # originally set as comma, moves evaluation back to last char before comma
 	lb $t0, 0($s1)
 	beq $t0, 32, set_end_ptr				     # if space --> moves evaluation again
 	addi $t3, $s1, 0					     # sets $t3 == tail of word
+	addi $t1, $t1, 1					     # increments string length
+	bgt $t1, 8, length_error
 	j find_word_exit
 	
+length_error:							    # if input is longer than 8 bytes then outputs "too long"
+	li $v0, 4
+	la $a0, too_long
+	syscall
+	j pre_next_word
+
 check_validity:
 	lb $t0, 0($t2)
+	beq $t2, $t3, pre_next_word
 	blt $t0, 48, invalid
 	blt $t0, 58, valid					     # checks if character is 0-9
 	blt $t0, 65, invalid
@@ -77,15 +97,13 @@ invalid:
 	li $v0, 4
 	la $a0, error_string                                         # load address of error_string to print
 	syscall
-	#Need to jump to next word
-	#j find_word_entrance
+	j pre_next_word
 	
 valid:
 	add $a0, $0, $t0					     # passes char parameter into $a0
 	jal hex_sum
 	addi $t2, $t2, 1					     # moves evaluation to next char
 	j check_validity					     # loops evaluation for next char(s)
-
 	
 char_2_hex:							     # subprogram_1
 	add $t0, $a0, $0					     # retrieves char parameter from $a0
@@ -109,5 +127,41 @@ hex_sum:							     # subprogram_2
 	add $t0, $v0, $0					     # retrieves return value from subprogram 1
 	sll $t5, $t5, 4						     # shifts to make room for next char to be added
 	add $t5, $t5, $t0					     # adds decimal value of char to decimal value of current word
-	add $v0, $0, $t5
+	addi $sp, $sp, -4					     # allocates space on stack
+	sw $t5, 0($sp)						     # stores decimal value of current word ($t5) to stack
+	#addi $v0, $0, 0($sp)					     # retrieves value from stack and places in return reg
+	#add $a1, $0, 0($sp)					     # stores value into parameter reg for later retrieval
 	jr $ra
+	
+print:
+	li $v0, 1
+	la $a0, 0($sp)
+	syscall
+	li $v0, 4
+	la $a0, comma
+	syscall
+	jr $ra
+print_unsigned:
+	lw $t7, 0($sp)
+	addi $t6, $0, 10000
+	divu $t7, $t6
+	mflo $quotient
+	mfhi $remainder
+	li $v0, 1
+	la $a0, ($quotient)
+	syscall
+	li $v0, 1
+	la $a0, ($remainder)
+	syscall
+	jr $ra
+	
+pre_next_word:
+	add $s1, $0, $s2					    # sets to next word
+	beq $t1, 8, pre_print
+	jal print
+	j post_next_word
+pre_print:
+	jal print_unsigned
+	j post_next_word
+
+#use slt (set if less than) to test if string is too long
