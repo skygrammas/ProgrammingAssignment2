@@ -3,11 +3,15 @@
 # $t1: length of current word
 # $t2: front word ptr
 # $t3: end word ptr
-# $$t4: index
+# $t4: index
 # $t5: hex sum (totalHex)
 # $t6: divisor for unsigned printing (emulation) function
 # $t7: value retriever (from arguments) for print functions
+# $t8: quotient for unsigned printing (emulation) function
+# $t9: remainder for unsigned printing (emulation) function
 # $s2: pointer to next char after comma between words
+# $s0: return register preserver
+# $s3: bool to test whether all input is calculated
 
 # PROGRAM: Programming Assignment 2 (Strings to Hex)
 	.data                                                        # data section
@@ -47,14 +51,15 @@ store_input:                                                         # moves inp
 	jr $ra
 	
 find_word_entrance:						     # initial entrance to find word
-	addi $t4, $0, 0
+	addi $t4, $0, 0						     # resets index
+	addi $t1, $0, 0						     # resets string length
 find_word:							     # finds front and end of word within string
 	lb $t0, 0($s1)
 	beq $t0, 32, ignore_space
 	beq $t4, 0, set_front_ptr
 	beq $t0, 44, true_end_ptr
 	beq $t0, 0, true_end_ptr
-	beq $t0, 10, true_end_ptr
+	beq $t0, 10, truest_end_ptr
 	addi $s1, $s1, 1					     # moves evaluation to next char
 	addi $t4, $t4, 1					     # increments index
 	addi $t1, $t1, 1					     # increments string length
@@ -66,6 +71,11 @@ set_front_ptr:							     # sets pointer to head of word
 ignore_space:							     # ignores space and moves evaluation to next char
 	addi $s1, $s1, 1
 	j find_word
+truest_end_ptr:
+	addi $s3, $0, 1
+	addi $s2, $0, 0
+	addi $s2, $s1, 1
+	j set_end_ptr
 true_end_ptr:							     # sets pointer to next char after comma
 	addi $s2, $0, 0
 	addi $s2, $s1, 1
@@ -74,7 +84,6 @@ set_end_ptr:							     # sets pointer to tail of word
 	lb $t0, 0($s1)
 	beq $t0, 32, set_end_ptr				     # if space --> moves evaluation again
 	addi $t3, $s1, 0					     # sets $t3 == tail of word
-	addi $t1, $t1, 1					     # increments string length
 	bgt $t1, 8, length_error
 	j find_word_exit
 	
@@ -86,7 +95,6 @@ length_error:							    # if input is longer than 8 bytes then outputs "too long
 
 check_validity:
 	lb $t0, 0($t2)
-	beq $t2, $t3, pre_next_word
 	blt $t0, 48, invalid
 	blt $t0, 58, valid					     # checks if character is 0-9
 	blt $t0, 65, invalid
@@ -102,14 +110,15 @@ invalid:
 valid:
 	add $a0, $0, $t0					     # passes char parameter into $a0
 	jal hex_sum
+	beq $t2, $t3, pre_next_word				     # checks if at the end of the current word
 	addi $t2, $t2, 1					     # moves evaluation to next char
 	j check_validity					     # loops evaluation for next char(s)
 	
 char_2_hex:							     # subprogram_1
 	add $t0, $a0, $0					     # retrieves char parameter from $a0
-	bgt $t0, 97, numberVal
-	bgt $t0, 65, uppercaseVal
-	bgt $t0, 48, lowercaseVal
+	bgt $t0, 96, lowercaseVal
+	bgt $t0, 64, uppercaseVal
+	bgt $t0, 47, numberVal
 numberVal:							     # converts number char to hexadecimal
 	addi $t0, $t0, -48
 	j char_2_hex_continued
@@ -123,36 +132,47 @@ char_2_hex_continued:
 	jr $ra
 
 hex_sum:							     # subprogram_2
+	add $s0, $ra, $0					     # preserves return reg value
 	jal char_2_hex
 	add $t0, $v0, $0					     # retrieves return value from subprogram 1
 	sll $t5, $t5, 4						     # shifts to make room for next char to be added
 	add $t5, $t5, $t0					     # adds decimal value of char to decimal value of current word
+	add $ra, $s0, $0					     # restores return reg to hex_sum (call) return location
+	beq $t2, $t3, add_to_stack				     # checks if at the end of the current word
+	jr $ra
+add_to_stack:
 	addi $sp, $sp, -4					     # allocates space on stack
 	sw $t5, 0($sp)						     # stores decimal value of current word ($t5) to stack
-	#addi $v0, $0, 0($sp)					     # retrieves value from stack and places in return reg
-	#add $a1, $0, 0($sp)					     # stores value into parameter reg for later retrieval
+	add $ra, $s0, $0					     # restores return reg to hex_sum (call) return location
 	jr $ra
 	
 print:
+	lw $t8, 0($sp)						     # loads stack contents into $t8
 	li $v0, 1
-	la $a0, 0($sp)
+	la $a0, ($t8)
 	syscall
 	li $v0, 4
 	la $a0, comma
 	syscall
+	addi $sp, $sp, 4					     # pops previous word from stack
+	addi $t5, $0, 0						     # resets running sum register
+	beq $s3, 1, exit_program
 	jr $ra
 print_unsigned:
+	addi $t8, $0, 0						     # sets/resets quotient register
+	addi $t9, $0, 0						     # sets/resets remainder register
 	lw $t7, 0($sp)
 	addi $t6, $0, 10000
 	divu $t7, $t6
-	mflo $quotient
-	mfhi $remainder
+	mflo $t8
+	mfhi $t9
 	li $v0, 1
-	la $a0, ($quotient)
+	la $a0, ($t8)
 	syscall
 	li $v0, 1
-	la $a0, ($remainder)
+	la $a0, ($t9)
 	syscall
+	beq $s3, 1, exit_program
 	jr $ra
 	
 pre_next_word:
@@ -164,4 +184,6 @@ pre_print:
 	jal print_unsigned
 	j post_next_word
 
-#use slt (set if less than) to test if string is too long
+exit_program:
+	li $v0, 10                                                   # exits program
+	syscall
