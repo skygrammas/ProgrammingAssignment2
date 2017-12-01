@@ -1,18 +1,24 @@
-# $s1: entire string <= 1000
-# $t0: individual char evaluations
-# $t1: length of current word
-# $t2: front word ptr
-# $t3: end word ptr
-# $t4: index
-# $t5: hex sum (totalHex)
-# $t6: divisor for unsigned printing (emulation) function
-# $t7: value retriever (from arguments) for print functions
-# $t8: quotient for unsigned printing (emulation) function
-# $t9: remainder for unsigned printing (emulation) function
-# $s2: pointer to next char after comma between words
-# $s0: return register preserver
-# $s3: bool to test whether all input is calculated
-
+######################################################################Strings_to_Hex
+# Prompts user to enter hexadecimal strings <=1000bytes and converts to decimal
+#
+# Skylar Grammas
+# 
+# github_link: https://github.com/skygrammas/ProgrammingAssignment2
+#
+# Saved registers
+# $s0: return register preserver	 $s1: entire string <= 1000
+# $s2: pointer to char after commas	 $s3: bool to test completion
+#
+# Temporary registers
+# $t0: individual char evaluations	 $t1: length of current word
+# $t2: front word ptr			 $t3: end word ptr
+# $t4: index				 $t5: hex sum (totalHex)
+# $t6: unsigned printing divisor	 $t7: printing parameters
+# $t8: unsigned printing quotient	 $t9: unsigned printing remainder
+#
+# Argument registers
+# $a0: various uses			 $a1: various uses
+#
 # PROGRAM: Programming Assignment 2 (Strings to Hex)
 	.data                                                        # data section
 	string: .space 1000                                          # allocates 1000 bytes of space in memory
