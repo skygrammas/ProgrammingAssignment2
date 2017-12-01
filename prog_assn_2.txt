@@ -18,7 +18,7 @@
 	string: .space 1000                                          # allocates 1000 bytes of space in memory
 	error_string: .asciiz "NaN" 			     # string to output if input is not hex
 	input_string: .asciiz "\nEnter a string up to 1000 characters: " # string to output to request user input
-	too_long: .asciiz "Too long"			     # string to output if input is too long
+	too_long: .asciiz "too large"			     # string to output if input is too long
 	newline: .asciiz "\n"					     # newline char for formatting output
 	comma: .asciiz ","					     #comma char for formatting output
 	.text                                                        # code section
@@ -65,6 +65,8 @@ find_word:							     # finds front and end of word within string
 	addi $t1, $t1, 1					     # increments string length
 	j find_word						     # loop
 set_front_ptr:							     # sets pointer to head of word
+	beq $t0, 44, invalid
+	beq $t0, 10, exit_program
 	addi $t2, $s1, 0					     # sets $t2 == head of word
 	addi $t4, $t4, 1					     # increments index
 	addi $t1, $t1, 1					     # increments string length
@@ -202,6 +204,7 @@ print_zero:
 	jr $ra
 	
 pre_next_word_via_error:
+	beq $t4, 0, move_evaluation
 	add $s1, $0, $s2
 	j post_next_word
 pre_next_word:
@@ -219,3 +222,6 @@ exit_program:
 true_end_ptr_check:
 	beq $t4, 0, invalid
 	j true_end_ptr
+move_evaluation:
+	addi $s1, $s1, 1
+	j post_next_word
