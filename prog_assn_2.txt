@@ -16,11 +16,11 @@
 # PROGRAM: Programming Assignment 2 (Strings to Hex)
 	.data                                                        # data section
 	string: .space 1000                                          # allocates 1000 bytes of space in memory
-	error_string: .asciiz "\nNaN\n" 			     # string to output if input is not hex
+	error_string: .asciiz "NaN" 			     # string to output if input is not hex
 	input_string: .asciiz "\nEnter a string up to 1000 characters: " # string to output to request user input
-	too_long: .asciiz "\nToo long\n"			     # string to output if input is too long
+	too_long: .asciiz "Too long"			     # string to output if input is too long
 	newline: .asciiz "\n"					     # newline char for formatting output
-	comma: .asciiz ", "					     #comma char for formatting output
+	comma: .asciiz ","					     #comma char for formatting output
 	.text                                                        # code section
 main:
 	jal request_input
@@ -57,7 +57,7 @@ find_word:							     # finds front and end of word within string
 	lb $t0, 0($s1)
 	beq $t0, 32, ignore_space
 	beq $t4, 0, set_front_ptr
-	beq $t0, 44, true_end_ptr
+	beq $t0, 44, true_end_ptr_check
 	beq $t0, 0, true_end_ptr
 	beq $t0, 10, truest_end_ptr
 	addi $s1, $s1, 1					     # moves evaluation to next char
@@ -91,7 +91,10 @@ length_error:							    # if input is longer than 8 bytes then outputs "too long
 	li $v0, 4
 	la $a0, too_long
 	syscall
-	j pre_next_word
+	li $v0, 4
+	la $a0, comma
+	syscall
+	j pre_next_word_via_error
 
 check_validity:
 	lb $t0, 0($t2)
@@ -105,7 +108,11 @@ invalid:
 	li $v0, 4
 	la $a0, error_string                                         # load address of error_string to print
 	syscall
-	j pre_next_word
+	li $v0, 4
+	la $a0, comma
+	syscall
+	addi $t5, $0, 0						     # resets hex sum
+	j pre_next_word_via_error
 	
 valid:
 	add $a0, $0, $t0					     # passes char parameter into $a0
@@ -151,18 +158,20 @@ print:
 	li $v0, 1
 	la $a0, ($t8)
 	syscall
-	li $v0, 4
-	la $a0, comma
-	syscall
 	addi $sp, $sp, 4					     # pops previous word from stack
 	addi $t5, $0, 0						     # resets running sum register
 	beq $s3, 1, exit_program
+	li $v0, 4
+	la $a0, comma
+	syscall
 	jr $ra
 print_unsigned:
 	addi $t8, $0, 0						     # sets/resets quotient register
 	addi $t9, $0, 0						     # sets/resets remainder register
 	lw $t7, 0($sp)
-	addi $t6, $0, 10000
+	add $s0, $ra, $0					     # preserves return reg value in case of jump
+	beq $t7, 0, print_zero
+	addi $t6, $0, 10
 	divu $t7, $t6
 	mflo $t8
 	mfhi $t9
@@ -172,9 +181,29 @@ print_unsigned:
 	li $v0, 1
 	la $a0, ($t9)
 	syscall
+	addi $sp, $sp, 4					     # pops previous word from stack
+	addi $t5, $0, 0						     # resets running sum register
 	beq $s3, 1, exit_program
+	li $v0, 4
+	la $a0, comma
+	syscall
+	jr $ra
+print_zero:
+	li $v0, 1
+	la $a0, ($t7)
+	syscall
+	addi $sp, $sp, 4					     # pops previous word from stack
+	addi $t5, $0, 0						     # resets running sum register
+	beq $s3, 1, exit_program
+	li $v0, 4
+	la $a0, comma
+	syscall
+	add $ra, $s0, $0					     # restores return reg to print_unsigned (call) return location
 	jr $ra
 	
+pre_next_word_via_error:
+	add $s1, $0, $s2
+	j post_next_word
 pre_next_word:
 	add $s1, $0, $s2					    # sets to next word
 	beq $t1, 8, pre_print
@@ -187,3 +216,6 @@ pre_print:
 exit_program:
 	li $v0, 10                                                   # exits program
 	syscall
+true_end_ptr_check:
+	beq $t4, 0, invalid
+	j true_end_ptr
